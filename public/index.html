@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>URL Shortener</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .container {
+      background: #1e293b;
+      padding: 40px;
+      border-radius: 12px;
+      width: 500px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #38bdf8;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+    input:focus { outline: 2px solid #38bdf8; border-color: transparent; }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background: #7dd3fc; }
+    .result {
+      margin-top: 20px;
+      padding: 16px;
+      background: #0f172a;
+      border-radius: 8px;
+      display: none;
+    }
+    .result a {
+      color: #38bdf8;
+      word-break: break-all;
+    }
+    .error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>URL Shortener</h1>
+
+    <!-- POST: Shorten a URL -->
+    <label for="urlInput">Enter a URL to shorten:</label>
+    <input type="url" id="urlInput" placeholder="https://example.com" />
+    <button id="shortenBtn">Shorten URL</button>
+
+    <!-- Result box -->
+    <div class="result" id="result">
+      <p><strong>Short URL:</strong></p>
+      <p><a id="shortLink" href="#" target="_blank"></a></p>
+      <p style="margin-top:8px; color:#94a3b8; font-size:14px;">
+        Click the link above to test the GET redirect!
+      </p>
+    </div>
+
+    <div class="result error" id="errorBox"></div>
+  </div>
+
+  <script>
+    const urlInput = document.getElementById("urlInput");
+    const shortenBtn = document.getElementById("shortenBtn");
+    const resultBox = document.getElementById("result");
+    const shortLink = document.getElementById("shortLink");
+    const errorBox = document.getElementById("errorBox");
+
+    shortenBtn.addEventListener("click", async () => {
+      const url = urlInput.value.trim();
+      resultBox.style.display = "none";
+      errorBox.style.display = "none";
+
+      if (!url) {
+        errorBox.textContent = "Please enter a URL.";
+        errorBox.style.display = "block";
+        return;
+      }
+
+      try {
+        // POST request to /shorten
+        const response = await fetch("/shorten", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Something went wrong");
+        }
+
+        // Show the shortened URL as a clickable link (tests GET redirect)
+        shortLink.href = data.shortUrl;
+        shortLink.textContent = data.shortUrl;
+        resultBox.style.display = "block";
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = "block";
+      }
+    });
+
+    // Allow pressing Enter to submit
+    urlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") shortenBtn.click();
+    });
+  </script>
+</body>
+</html>
