@@ -32,7 +32,7 @@
       margin-bottom: 8px;
       font-weight: bold;
     }
-    input {
+    input, select {
       width: 100%;
       padding: 12px;
       border: 1px solid #334155;
@@ -42,7 +42,21 @@
       font-size: 16px;
       margin-bottom: 16px;
     }
-    input:focus { outline: 2px solid #38bdf8; border-color: transparent; }
+    input:focus, select:focus { outline: 2px solid #38bdf8; border-color: transparent; }
+    select option { background: #1e293b; }
+    .expiry-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .expiry-row input {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    .expiry-row select {
+      width: 130px;
+      margin-bottom: 0;
+    }
     button {
       width: 100%;
       padding: 12px;
@@ -66,54 +80,96 @@
       color: #38bdf8;
       word-break: break-all;
     }
-    .error { color: #f87171; }
+    .expires-text {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .expires-text span {
+      color: #fbbf24;
+    }
+    .error {
+      margin-top: 20px;
+      padding: 16px;
+      background: #0f172a;
+      border-radius: 8px;
+      display: none;
+      color: #f87171;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>URL Shortener</h1>
 
-    <!-- POST: Shorten a URL -->
     <label for="urlInput">Enter a URL to shorten:</label>
     <input type="url" id="urlInput" placeholder="https://example.com" />
+
+    <label>Link expiry:</label>
+    <div class="expiry-row">
+      <input type="number" id="expiryValue" value="7" min="1" />
+      <select id="expiryUnit">
+        <option value="second">Seconds</option>
+        <option value="minute">Minutes</option>
+        <option value="hour">Hours</option>
+        <option value="day" selected>Days</option>
+        <option value="week">Weeks</option>
+      </select>
+    </div>
+
     <button id="shortenBtn">Shorten URL</button>
 
-    <!-- Result box -->
     <div class="result" id="result">
       <p><strong>Short URL:</strong></p>
       <p><a id="shortLink" href="#" target="_blank"></a></p>
-      <p style="margin-top:8px; color:#94a3b8; font-size:14px;">
-        Click the link above to test the GET redirect!
-      </p>
+      <p class="expires-text">Expires at: <span id="expiresAt"></span></p>
     </div>
 
-    <div class="result error" id="errorBox"></div>
+    <div class="error" id="errorBox"></div>
   </div>
 
   <script>
-    const urlInput = document.getElementById("urlInput");
-    const shortenBtn = document.getElementById("shortenBtn");
-    const resultBox = document.getElementById("result");
-    const shortLink = document.getElementById("shortLink");
-    const errorBox = document.getElementById("errorBox");
+    const urlInput     = document.getElementById("urlInput");
+    const expiryValue  = document.getElementById("expiryValue");
+    const expiryUnit   = document.getElementById("expiryUnit");
+    const shortenBtn   = document.getElementById("shortenBtn");
+    const resultBox    = document.getElementById("result");
+    const shortLink    = document.getElementById("shortLink");
+    const expiresAtEl  = document.getElementById("expiresAt");
+    const errorBox     = document.getElementById("errorBox");
+
+    const unitToMs = {
+      second: 1000,
+      minute: 60 * 1000,
+      hour:   60 * 60 * 1000,
+      day:    24 * 60 * 60 * 1000,
+      week:   7 * 24 * 60 * 60 * 1000,
+    };
 
     shortenBtn.addEventListener("click", async () => {
       const url = urlInput.value.trim();
       resultBox.style.display = "none";
-      errorBox.style.display = "none";
+      errorBox.style.display  = "none";
 
       if (!url) {
-        errorBox.textContent = "Please enter a URL.";
+        errorBox.textContent   = "Please enter a URL.";
+        errorBox.style.display = "block";
+        return;
+      }
+
+      const expiryMs = parseInt(expiryValue.value) * unitToMs[expiryUnit.value];
+
+      if (!expiryMs || expiryMs <= 0) {
+        errorBox.textContent   = "Please enter a valid expiry time.";
         errorBox.style.display = "block";
         return;
       }
 
       try {
-        // POST request to /shorten
         const response = await fetch("/shorten", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url }),
+          body: JSON.stringify({ url, expiryMs }),
         });
 
         const data = await response.json();
@@ -122,17 +178,16 @@
           throw new Error(data.error || "Something went wrong");
         }
 
-        // Show the shortened URL as a clickable link (tests GET redirect)
-        shortLink.href = data.shortUrl;
+        shortLink.href        = data.shortUrl;
         shortLink.textContent = data.shortUrl;
+        expiresAtEl.textContent = new Date(data.expiresAt).toLocaleString();
         resultBox.style.display = "block";
       } catch (err) {
-        errorBox.textContent = err.message;
+        errorBox.textContent   = err.message;
         errorBox.style.display = "block";
       }
     });
 
-    // Allow pressing Enter to submit
     urlInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") shortenBtn.click();
     });
